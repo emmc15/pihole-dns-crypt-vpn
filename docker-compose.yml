@@ -1,0 +1,107 @@
+
+version: "3.3"
+
+networks:
+    dns-network:
+        ipam:
+            config:
+                - subnet: 10.5.0.0/16
+
+
+services:
+
+  dnscrypt:
+    container_name: dnscrypt-proxy
+    image: klutchell/dnscrypt-proxy
+    networks:
+        dns-network:
+            ipv4_address: 10.5.0.2
+    ports:
+      - "5053:5053/udp"
+      - "5053:5053/tcp"
+    environment:
+      TZ: '${TZ}'
+    restart: unless-stopped
+
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    networks:
+        dns-network:
+            ipv4_address: 10.5.0.3
+    ports:
+      - "5054:53/tcp"
+      - "5054:53/udp"
+      - "8000:80/tcp"
+      - "4430:443/tcp"
+    environment:
+      TZ: '${TZ}' # Set yours here
+      WEBPASSWORD: '${PWD}' # Recommended to Change this 
+      DNS1: "10.5.0.2#5053" # Routes to the dns crypt sinkhole NOTE: Set to same ip and port as dnscrypt above
+      DNS2: 'no'
+      
+    volumes:
+       - './pihole/etc-pihole/:/etc/pihole/'
+       - './pihole/etc-dnsmasq.d/:/etc/dnsmasq.d/'
+    restart: unless-stopped
+    depends_on:
+      - dnscrypt
+
+  wireguard:
+    image: linuxserver/wireguard
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - SERVERURL=${IP}
+      - PEERS=2 #optional
+      - PEERDNS=10.5.0.3 #optional
+      - INTERNAL_SUBNET=10.1.1.0
+    volumes:
+      - ./wireguard/config/:/config
+      - /lib/modules:/lib/modules
+      #- ./wireguard/resolv.conf:/etc/resolv.conf
+    dns:
+      - 10.5.0.3 # Points to pihole
+      - 10.5.0.2 # Points to dnscrypt
+    ports:
+      - 51820:51820/udp
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    restart: unless-stopped
+    networks:
+      dns-network:
+        ipv4_address: 10.5.0.4
+
+    
+    #--------------------------------------------------------------------------
+    # Run Pihole through host ports, will route host traffic through pihole
+    # Make sure to run to comment out the pihole instance above
+    #--------------------------------------------------------------------------
+
+    #pihole:
+    #  container_name: pihole
+    #  image: pihole/pihole:latest
+    #  # For DHCP it is recommended to remove these ports and instead add: network_mode: "host"
+    #  ports:
+    #    - "53:53/tcp"
+    #    - "53:53/udp"
+    #    - "67:67/udp"
+    #    - "80:80/tcp"
+    #    - "443:443/tcp"
+    #  environment:
+    #    TZ: 'America/Chicago'
+    #    WEBPASSWORD: '${PWD}'
+    #    DNS1: "10.5.0.2#5053" # Routes to the dns crypt sinkhole
+    #  volumes:
+    #    - './etc-pihole/:/etc/pihole/'
+    #    - './etc-dnsmasq.d/:/etc/dnsmasq.d/'
+    #  cap_add:
+    #    - NET_ADMIN
+    #  restart: unless-stopped
+
+        
