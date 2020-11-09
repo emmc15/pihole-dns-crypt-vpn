@@ -10,6 +10,14 @@ A docker compose file that turns host into a wireguard vpn server with dns resol
 * Step 2: edit the .env file to fit your settings, the most important things here are the IP variable and the PUID and GUID variables
 * Step 3: `run docker-compose up`
 
+# How to Check if Working
+
+Check everything is running by entering the pihole ip specified in the docker-compose file in your web browser and log in to the website
+
+Next connect a device to the wireguard and see if the pihole page is accessible through the same ip. 
+The ip for pihole should be only accesible through the vpn as it's all contained in the virtual docker network specified in the docker-compose file
+
+
 
 # Acknowledgements
 Credit goes to losuler for the initial docker-compose file and inspiration 
